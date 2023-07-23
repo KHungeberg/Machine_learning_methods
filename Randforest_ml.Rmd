@@ -1,0 +1,129 @@
+---
+title: "Random forrest application"
+author: "Kristian Hungeberg (xrf615)"
+date: "2023-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction to method
+
+Random forrest is an ensemble method in machine learning that makes use of decision trees, bootstrapping and feature selection to get both an accurate prediction or classification as well as a measure for the importance of the features with regards to the prediction of the responsevariable. 
+
+## Short theory
+
+The idea with random forrest is: "What if we trained n decision trees with few features at each decision and averaged/(Majority voted) the output of all of them to get an accurate answer and get an idea of how important each feature is in the nodes of the tree?". Very long and precise idea, but that's the big picture of it. 
+
+We start out with a training dataset. 
+
+Then we bootstrap B samples. For each sample we train a decision tree, but for each decision or node of the tree, we only make use of a small number of features(variables) in the data. This seems like a wack idea, but it makes sense, since it makes a bigger diversity of trees and if we could use all of them, they would likely look very much the same. With feature sampling we make a big diverse forest of trees where we can see how much error is followed by not including a variable in the node.
+
+When we have constructed all the trees, we have our random forrest. The output of the random forrest will then be an average/median or majority vote of the predicted answer of all the trees. 
+
+This turns out to be a great way to do predictions of the data. 
+
+## Application
+
+Let us do the analysis on the famous penguin dataset. 
+
+```{r}
+## construct training and test data
+
+penguin_rand <- palmerpenguins::penguins %>% 
+  na.omit() %>% 
+  sample_n(333,replace = F)
+
+train_data <- penguin_rand[1:100,] %>% as.tibble()
+
+test_data <- penguin_rand[101:150,] %>% as.tibble()
+
+## We want to predict the species variable. The random forrest is trained as such: 
+
+library(randomForest)
+library(tidyverse)
+
+RF_penguin <- randomForest(species~.,data = train_data %>% droplevels(),importance = TRUE)
+
+RF_penguin
+
+RF_penguin$importance
+
+RF_penguin %>% 
+  predict(train_data) %>% 
+  as.tibble() %>% 
+  cbind("real_val" = train_data$species) %>% 
+  mutate(accurate = (value==real_val)) %>% 
+  summarise(
+    accuracy = mean(accurate)
+  ) %>% 
+  pull(accuracy)
+## 100% accuracy on the training dataset (worrysome, though this is a very small dataset)
+```
+We see that the algorithm classifies the species very well with almost no error. 
+
+Furthermore from the importance matrix we see that Petal width and length is a very important variable when deciding the species of the plant. 
+
+### Test performance
+
+```{r}
+RF_penguin %>% 
+  predict(test_data) %>% 
+  as.tibble() %>% 
+  cbind("real_val"=test_data$species) %>% 
+  mutate(accurate = (value==real_val)) %>% 
+  summarise(
+    mean(accurate)
+  )
+## 94% accuracy on the test data. This is very good performance and should not be expected by you average joe dataset. 
+```
+
+## Performance analysis of parameter influence
+
+We can see how the number of trees constructed, makes a difference in accuracy.
+
+We can also see how the number of sampled features has an impact on the model. We will just focus on accuracy, but could also analyse variance or other impacts on the model. There are lots of parameters to explore in the random forest package. 
+
+
+```{r}
+## Impact of features sampled. 
+
+K <- 1:(ncol(train_data)-1)
+accuracy_train <- c()
+accuracy_test <- c()
+for(k in K){
+  RF_penguin <- randomForest(species~.,data = train_data %>% droplevels(),importance = TRUE,mtry=k)
+  ## Train accuracy
+  accuracy_train <- append(accuracy_train,RF_penguin %>% 
+  predict(train_data) %>% 
+  as.tibble() %>% 
+  cbind("real_val" = train_data$species) %>% 
+  mutate(accurate = (value==real_val)) %>% 
+  summarise(
+    accuracy = mean(accurate)
+  ) %>% 
+  pull(accuracy))
+  ## Test accuracy
+  
+  accuracy_test <- append(accuracy_test,RF_penguin %>% 
+  predict(test_data) %>% 
+  as.tibble() %>% 
+  cbind("real_val" = test_data$species) %>% 
+  mutate(accurate = (value==real_val)) %>% 
+  summarise(
+    accuracy = mean(accurate)
+  ) %>% 
+  pull(accuracy))
+}
+
+accuracy_test
+
+accuracy_train
+
+palmerpenguins::penguins %>% 
+  na.omit()
+```
+
+
