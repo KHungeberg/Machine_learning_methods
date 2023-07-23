@@ -80,7 +80,7 @@ RF_penguin %>%
 ## 94% accuracy on the test data. This is very good performance and should not be expected by you average joe dataset. 
 ```
 
-## Performance analysis of parameter influence
+## Performance analysis of parameter influence (THIS ANALYSIS DOES NOT MAKE SENSE ON THE PENGUINS DATASET)
 
 We can see how the number of trees constructed, makes a difference in accuracy.
 
